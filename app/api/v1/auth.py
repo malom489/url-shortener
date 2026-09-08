@@ -7,6 +7,9 @@ from app.db.session import get_db
 from app.models.users import User
 from app.schemas.user import UserCreate, UserResponse
 from app.services.auth import hash_password
+from app.schemas.user import UserLogin, Token
+from app.services.auth import verify_password, generate_jwt_token
+
 router=APIRouter()
 
 @router.post("/register",response_model=UserResponse,status_code=status.HTTP_201_CREATED)
@@ -33,3 +36,11 @@ async def register_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
     await db.refresh(new_user)
 
     return new_user
+@router.post("/Login",response_model=Token)
+async def login(user_in: UserLogin, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == user_in.email))
+    user = result.scalar_one_or_none()
+    if not user or not verify_password(user_in.password, user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+    access_token = generate_jwt_token(user_id=user.id, tenant_id=user.tenant_id)
+    return Token(access_token=access_token)
