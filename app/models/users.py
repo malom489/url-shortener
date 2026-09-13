@@ -8,6 +8,6 @@ class User(Base):
     full_name = Column(String)
     hashed_password=Column(String(100),nullable=False)
     email=Column(String(50),unique=True,index=True,nullable=False)
-    tenant_id=Column(Integer,nullable=False)
+    tenant_id=Column(String(10),nullable=False)
     is_active=Column(Integer,default=1)
     created_at=Column(DateTime,server_default=func.now())

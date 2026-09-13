@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: url-shortener-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: urlshortener
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - url-shortener-network
+
+  api:
+    build: .
+    container_name: url-shortener-api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/urlshortener
+      SECRET_KEY: dev-secret-key-change-in-production
+    depends_on:
+      - db
+    networks:
+      - url-shortener-network
+
+volumes:
+  postgres_data:
+    external: true
+    name: 60b05dadfec3e5cd5ba68f651ac05e813d8c10681434c2cd614ed5e97b21759e
+
+networks:
+  url-shortener-network:
+     external: true
+     name: url-shortener-network
