@@ -26,3 +26,11 @@ env/
 
 # Docker
 postgres_data/
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# Alembic (if you want to track only versions/)
+# alembic/__pycache__/

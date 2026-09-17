@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import Optional, Optional
-from pydantic import BaseModel, BaseModel,EmailStr
+from typing import Optional
+from pydantic import BaseModel, ConfigDict, EmailStr
 class UserCreate(BaseModel):
     email:EmailStr
     full_name:str
@@ -13,14 +13,16 @@ class UserResponse(BaseModel):
     tenant_id: str
     is_active: bool
     created_at: datetime  
-    class config:
-               from_attributes =True
+    model_config = ConfigDict(from_attributes=True)
     
 class UserLogin(BaseModel):
     email:EmailStr
     password:str 
     
 class Token(BaseModel):
-    access_token:str
-    token_type:str="bearer"
-    
+    access_token: str
+    token_type: str = "bearer"
+
+class TokenData(BaseModel):
+    user_id: Optional[int] = None
+    tenant_id: Optional[str] = None

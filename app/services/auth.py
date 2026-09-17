@@ -3,14 +3,14 @@ import jwt
 from fastapi import Depends,HTTPException,status
 from fastapi.security import OAuth2PasswordBearer
 
-from datetime import datetime,timedelta
+from datetime import datetime, timedelta, timezone
 from app.core.config  import settings
 from  sqlalchemy import select 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
 from app.db.session import get_db
-from app.models.users import User
+from app.models.user import User
 from app.core.config import settings
 
 pwd_context=CryptContext(schemes=["bcrypt"],deprecated="auto")
@@ -22,7 +22,7 @@ def verify_password(plain_password:str,hashed_password:str)->bool:
     return pwd_context.verify(plain_password,hashed_password)
 
 def generate_jwt_token(user_id:int,tenant_id:str)->str:
-    expire=datetime.utcnow()+timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     payload={
         "sub":str(user_id),
         "tenant_id":str(tenant_id),

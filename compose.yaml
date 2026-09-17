@@ -1,3 +1,4 @@
+
 services:
   db:
     image: postgres:16-alpine
@@ -20,9 +21,19 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/urlshortener
+      REDIS_URL: redis://redis:6379/0
       SECRET_KEY: dev-secret-key-change-in-production
     depends_on:
       - db
+      - redis
+    networks:
+      - url-shortener-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: url-shortener-redis
+    ports:
+      - "6379:6379"
     networks:
       - url-shortener-network
 
@@ -33,5 +44,5 @@ volumes:
 
 networks:
   url-shortener-network:
-     external: true
-     name: url-shortener-network
+    external: true
+    name: url-shortener-network
