@@ -116,3 +116,38 @@ async def test_get_me_with_token(client):
     )
     assert response.status_code == 200
     assert response.json()["email"] == "me@example.com"
+@pytest.mark.asyncio
+async def test_get_me_with_tampered_token(client):
+    """A modified or invalid JWT signature should return 401."""
+    tampered_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalidpayload.invalidsignature"
+    response = await client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {tampered_token}"},
+    )
+    assert response.status_code == 401
+    assert "detail" in response.json()
+@pytest.mark.asyncio
+async def test_login_nonexistent_user_generic_error(client):
+    """Non-existent email should return identical 401 as wrong password to prevent enumeration."""
+    response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "nonexistent@example.com", "password": "somepassword123"},
+    )
+    assert response.status_code == 401
+    assert response.json()["error"] == "invalid_credentials"
+
+
+
+@pytest.mark.asyncio
+async def test_register_invalid_email_format(client):
+    """Invalid email formats should fail Pydantic validation with 422."""
+    response = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "not-an-email",
+            "password": "testpass123",
+            "full_name": "Test User",
+            "tenant_id": "test-tenant",
+        },
+    )
+    assert response.status_code == 422

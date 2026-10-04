@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-
+from app.core.rate_limiter import RateLimiter
 from app.db.session import get_db
 from app.models.link import Link
 from app.models.user import User
@@ -13,8 +13,12 @@ from app.services.short_code import generate_short_code
 
 router = APIRouter()
 
+@router.post(
+    "/",
+    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+    status_code=status.HTTP_201_CREATED,
+)
 
-@router.post("/", response_model=LinkResponse, status_code=status.HTTP_201_CREATED)
 async def create_link(
     link_in: LinkCreate,
     current_user: User = Depends(get_current_user),

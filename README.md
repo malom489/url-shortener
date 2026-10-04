@@ -32,7 +32,7 @@ I built this to learn how real backend systems are structured: how authenticatio
 | Testing | pytest + pytest-asyncio + httpx |
 | Container | Docker + Docker Compose |
 
-## Architectur
+## Architecture
      Client 
        │ HTTP
        ▼

@@ -1,4 +1,3 @@
-
 services:
   db:
     image: postgres:16-alpine
@@ -17,6 +16,9 @@ services:
   api:
     build: .
     container_name: url-shortener-api
+    working_dir: /app
+    volumes:
+      - .:/app
     ports:
       - "8000:8000"
     environment:

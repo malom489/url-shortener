@@ -12,7 +12,21 @@ from sqlalchemy.pool import NullPool
 from app.core.config import settings
 from app.db.session import Base, get_db
 from app.main import app
-
+import pytest
+import pytest_asyncio
+from app.core.rate_limiter import redis_client # Adjust to your actual import
+from redis import Redis
+test_redis = Redis.from_url(
+    settings.REDIS_URL,
+    encoding="utf-8",
+    decode_responses=True,
+)
+@pytest_asyncio.fixture(autouse=True)
+async def reset_redis_connection():
+    test_redis.flushdb()
+    yield
+    test_redis.flushdb()
+    await redis_client.aclose()
 test_engine = create_async_engine(settings.TEST_DATABASE_URL, echo=False, poolclass=NullPool)
 TestSessionLocal = sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
 
