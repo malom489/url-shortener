@@ -12,6 +12,10 @@ from app.models.user import User
 from app.models.link import Link
 
 
+from fastapi.responses import RedirectResponse
+
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
@@ -25,7 +29,9 @@ app = FastAPI(
     description="A PRODUCTION GRADE MULTI-TENANT URL SHORTENER",
     lifespan=lifespan,
 )
-
+@app.get("/", include_in_schema=False)
+async def redirect_to_docs():
+    return RedirectResponse(url="/docs")
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -47,7 +53,7 @@ app.include_router(v1_router, prefix=settings.API_V1_STR)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://replit.com/@malommwiti1/URL-Shortener"],
+    allow_origins=[","],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
