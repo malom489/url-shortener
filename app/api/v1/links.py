@@ -1,9 +1,11 @@
-
 from fastapi import APIRouter, Depends, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.rate_limiter import RateLimiter
+# Note: Commented out until you actually build the rate limiter.
+# from app.core.rate_limiter import RateLimiter 
+from app.core.exceptions import ShortCodeCollisionError, LinkCreationError
 from app.db.session import get_db
 from app.models.link import Link
 from app.models.user import User
@@ -15,17 +17,19 @@ router = APIRouter()
 
 @router.post(
     "/",
-    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
+    # dependencies=[Depends(RateLimiter(times=10, seconds=60))],
     status_code=status.HTTP_201_CREATED,
 )
-
 async def create_link(
     link_in: LinkCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a shortened link. Requires authentication."""
+    
+    # 1. Determine the short code
     if link_in.custom_code:
+        # Fast pre-check for a friendly error message
         result = await db.execute(select(Link).where(Link.short_code == link_in.custom_code))
         if result.scalars().first():
             raise ShortCodeCollisionError(
@@ -34,6 +38,7 @@ async def create_link(
             )
         short_code = link_in.custom_code
     else:
+        # Generate a random code with retries
         for _ in range(5):
             short_code = generate_short_code()
             result = await db.execute(select(Link).where(Link.short_code == short_code))
@@ -44,16 +49,38 @@ async def create_link(
                 message="Could not generate a unique short code. Try again.",
             )
 
+    # 2. Create the database record
     link = Link(
         tenant_id=current_user.tenant_id,
         short_code=short_code,
         original_url=link_in.original_url,
         created_by=current_user.id,
     )
-
     db.add(link)
-    await db.flush()
-    await db.refresh(link)
+
+    # 3. Commit and handle the Race Condition (The 500 Fix)
+    try:
+        await db.commit()
+        await db.refresh(link)  # Get the generated ID and created_at
+        
+    except IntegrityError:
+        # This happens if someone else inserted the SAME short_code 
+        # between our pre-check and our commit.
+        await db.rollback()
+        
+        # If it was a custom code, tell the user it's taken.
+        if link_in.custom_code:
+            raise ShortCodeCollisionError(
+                message="This custom code was just taken. Please try another.",
+                details={"custom_code": link_in.custom_code},
+            )
+        
+        # If it was a random code, ask the client to retry.
+        raise LinkCreationError(
+            message="A collision occurred while generating the short code. Please retry."
+        )
+
+    # 4. Return the response
     return link
 
 

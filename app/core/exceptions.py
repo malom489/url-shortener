@@ -1,29 +1,24 @@
-from fastapi import HTTPException, status
+from fastapi import status
 
-
-class AppException(HTTPException):
-    def __init__(self, status_code: int, message: str, details: dict | None = None):
-        super().__init__(status_code=status_code, detail=message)
+class AppException(Exception):
+    """Base exception for all application errors."""
+    def __init__(self, message: str, details: dict | None = None):
         self.message = message
-        self.details = details
+        self.details = details or {}
+        super().__init__(self.message)
 
 
 class LinkNotFoundError(AppException):
-    def __init__(self, message: str = "Link not found", details: dict | None = None):
-        super().__init__(status_code=status.HTTP_404_NOT_FOUND, message=message, details=details)
-
+    pass
 
 class ShortCodeCollisionError(AppException):
-    def __init__(self, message: str = "Short code collision", details: dict | None = None):
-        super().__init__(status_code=status.HTTP_409_CONFLICT, message=message, details=details)
-
+    pass
 
 class UserAlreadyExistsError(AppException):
-    def __init__(self, message: str = "User already exists", details: dict | None = None):
-        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, message=message, details=details)
-
+    pass
 
 class InvalidCredentialsError(AppException):
-    def __init__(self, message: str = "Invalid credentials", details: dict | None = None):
-        super().__init__(status_code=status.HTTP_401_UNAUTHORIZED, message=message, details=details)
+    pass
 
+class LinkCreationError(AppException):
+    pass

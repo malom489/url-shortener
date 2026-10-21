@@ -14,7 +14,7 @@ from app.models.link import Link
 
 from fastapi.responses import RedirectResponse
 
-
+from app.core.handlers import register_exception_handlers
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -29,6 +29,7 @@ app = FastAPI(
     description="A PRODUCTION GRADE MULTI-TENANT URL SHORTENER",
     lifespan=lifespan,
 )
+register_exception_handlers(app)
 @app.get("/", include_in_schema=False)
 async def redirect_to_docs():
     return RedirectResponse(url="/docs")
