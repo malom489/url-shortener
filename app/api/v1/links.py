@@ -5,13 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 # Note: Commented out until you actually build the rate limiter.
 # from app.core.rate_limiter import RateLimiter 
-from app.core.exceptions import ShortCodeCollisionError, LinkCreationError
+from app.core.exceptions import ShortCodeCollisionError, LinkCreationError,LinkNotFoundError
 from app.db.session import get_db
 from app.models.link import Link
 from app.models.user import User
 from app.schemas.link import LinkCreate, LinkResponse
 from app.services.auth import get_current_user
 from app.services.short_code import generate_short_code
+from app.db.redis import redis_client
 
 router = APIRouter()
 
@@ -96,3 +97,29 @@ async def list_links(
         .order_by(Link.created_at.desc())
     )
     return result.scalars().all()
+@router.delete("/{link_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_link(
+    link_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Link).where(
+            Link.id == link_id,
+            Link.tenant_id == current_user.tenant_id,
+        )
+    )
+    link = result.scalars().first()
+
+    if not link:
+        raise LinkNotFoundError(message="Link not found.")
+
+    short_code = link.short_code
+
+    await db.delete(link)
+    await db.commit()
+
+    try:
+        await redis_client.delete(f"link:{short_code}")
+    except Exception as e:
+        logger.error(f"Failed to invalidate cache for {short_code}: {e}")

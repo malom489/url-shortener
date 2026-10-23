@@ -94,3 +94,60 @@ async def test_bola_prevent_cross_user_link_deletion(
 
     # Must fail with 403 Forbidden or 404 Not Found
     assert delete_res.status_code in (403, 404)
+@pytest.mark.asyncio
+async def test_delete_link_invalidates_cache(client, db_session):
+    """Ensure deleting a link removes it from the DB and clears the Redis cache."""
+    
+    # 1. Create a real user and get a valid token
+    await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "delete-test@example.com",
+            "password": "testpassword123",
+            "full_name": "Delete Test User",
+            "tenant_id": "test-tenant"
+        }
+    )
+    login_response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "delete-test@example.com", "password": "testpassword123"}
+    )
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Create the link
+    create_response = await client.post(
+        "/api/v1/links/",
+        json={"original_url": "https://www.google.com", "custom_code": "del-test"},
+        headers=headers
+    )
+    assert create_response.status_code == 201
+    link_id = create_response.json()["id"]
+    short_code = create_response.json()["short_code"]
+
+    # 3. Trigger a redirect to populate the Redis cache
+    redirect_response = await client.get(f"/{short_code}", follow_redirects=False)
+    assert redirect_response.status_code == 302
+    
+    # Verify it is in the cache
+    from app.db.redis import redis_client
+    cached_value = await redis_client.get(f"link:{short_code}")
+    assert cached_value == "https://www.google.com"
+
+    # 4. Delete the link
+    delete_response = await client.delete(f"/api/v1/links/{link_id}", headers=headers)
+    assert delete_response.status_code == 204
+
+    # 5. Verify the database row is gone
+    from sqlalchemy import select
+    from app.models.link import Link
+    db_result = await db_session.execute(select(Link).where(Link.id == link_id))
+    assert db_result.scalars().first() is None
+
+    # 6. Verify the Redis cache is gone
+    cached_value_after_delete = await redis_client.get(f"link:{short_code}")
+    assert cached_value_after_delete is None
+
+    # 7. Verify the redirect now fails with a 404
+    failed_redirect = await client.get(f"/{short_code}", follow_redirects=False)
+    assert failed_redirect.status_code == 404
